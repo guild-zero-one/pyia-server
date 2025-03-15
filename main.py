@@ -1,32 +1,20 @@
-import os
+from fastapi import FastAPI
 
-import pandas as pd
-import pdfplumber
+from app.routers import files
 
-# Caminho da pasta onde estão os PDFs
-pdf_folder = "pdf"
+app = FastAPI(title="PyPDF Server")
 
-# Lista todos os arquivos da pasta
-pdf_files = [f for f in os.listdir(pdf_folder) if f.endswith(".pdf")]
+app.include_router(files.router)
 
-# Percorre cada PDF
-for pdf_file in pdf_files:
-    pdf_path = os.path.join(pdf_folder, pdf_file)
-    with pdfplumber.open(pdf_path) as pdf:
-        for page in pdf.pages:
-            table = page.extract_table()
-            if table:
-                df = pd.DataFrame(table[1:], columns=table[0])
-                print(f"Conteúdo do arquivo: {pdf_file}")
-                print(df)
-
-
-# for pdf_file in pdf_files:
-#     pdf_path = os.path.join(pdf_folder, pdf_file)
-#     with pdfplumber.open(pdf_path) as pdf:
-#         for page in pdf.pages:
-#             # text = page.extract_text()
-#             # print(text)
-
-#             table = page.extract_tables()
-#             print(table)
+#                    .-.
+#                   / /
+#                  / |
+#    |\     ._ ,-""  `.
+#    | |,,_/  7        ;
+#  `;=     ,=(     ,  /
+#   |`q  q  ` |    \_,|
+#  .=; <> _ ; /  ,/'/ |
+# ';|\,j_ \;=\ ,/   `-'
+#     `--'_|\  )
+#    ,' | /  ;'
+#   (,,/ (,,/
