@@ -9,9 +9,9 @@ readme = "README.md"
 python = ">=3.11,<4.0"
 pandas = "^2.2.3"
 openpyxl = "^3.1.5"
-pypdf2 = "^3.0.1"
 fastapi = {extras = ["standard"], version = "^0.115.11"}
 uvicorn = "^0.34.0"
+pymupdf = "^1.25.4"
 
 
 [tool.poetry.group.dev.dependencies]
