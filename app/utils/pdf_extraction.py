@@ -5,25 +5,33 @@ import fitz
 
 from fastapi import HTTPException, status, UploadFile
 
-from app.utils import test
+from app import modules
 
 
-def extract_text(pdf_file_path: str):
-    if not os.path.exists(pdf_file_path):
+def extract_text(type: str, pdf_path: str):
+    if not hasattr(modules, type):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Módulo {type} não encontrado",
+        )
+
+    if not os.path.exists(pdf_path):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="O arquivo não foi encontrado",
         )
 
     try:
-        with fitz.open(pdf_file_path) as doc:
-            for page in doc:
-                blocks = page.get_text("text")
-                remove_data = blocks.split("\nIPI\nICMS")
-                remove_data = remove_data[1].split("RESERVADO AO FISCO")
+        with fitz.open(pdf_path) as doc:
+            content = ""
 
-            response = test.text_to_dataframe(remove_data[0])
-        print(response)
+            for page in doc:
+                content += page.get_text("text")
+
+            module = getattr(modules, type)
+
+            response = module.create_df(content)
+
         return response
 
     except Exception as e:
