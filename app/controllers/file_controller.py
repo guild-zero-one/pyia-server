@@ -3,6 +3,8 @@
 import os
 from fastapi import status, HTTPException, UploadFile
 
+from app.utils import pdf_extraction
+
 
 async def create_file(file: UploadFile):
     try:
@@ -17,13 +19,15 @@ async def create_file(file: UploadFile):
             pdf = await file.read()
             p.write(pdf)
 
-        return {"message": "Arquivo salvo com sucesso!", "filename": file.filename}
-
         if not os.path.exists(pdf_file):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Falha ao salvar o arquivo.",
+                detail="Falha ao salvar o arquivo",
             )
+
+        response = pdf_extraction.extract_text(pdf_file)
+
+        return response
 
     except Exception as e:
         raise HTTPException(
