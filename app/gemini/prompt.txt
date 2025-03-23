@@ -1,0 +1,25 @@
+Convert the provided DataFrame into a JSON array format.
+
+Extract only the following fields from the DataFrame:
+
+"DESCRIÇÃO DOS PRODUTOS/SERVIÇOS" → Map to "sku"
+"QUANT." → Map to "qtd"
+"VALOR UNITÁRIO" → Map to "valor_unit"
+
+Additionally, create a new field "desc_sku" that provides the real name of the product based on the SKU. The products belong to the Boticário brand, so use this information to identify or infer the correct product name.
+
+The final JSON output must be a pure JSON array, without any additional text, explanations, or formatting. Do not include Markdown syntax (e.g., ```json) or any other surrounding characters.
+
+The expected JSON format is:
+
+[
+  {
+    "sku": "<original SKU from DataFrame>",
+    "desc_sku": "<identified or inferred product name>",
+    "qtd": "<quantity>",
+    "valor_unit": "<unit price>"
+  }
+]
+
+Return only the JSON array, without any preambles, explanations, or formatting markers.
+
