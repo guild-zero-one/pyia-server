@@ -1,4 +1,6 @@
 import pandas as pd
+
+from app.gemini import gen
 from app.utils.pdf_transform import transform_df
 
 
@@ -35,4 +37,4 @@ def create_df(content: str):
     df = pd.DataFrame(data, columns=header)
     transform_df(df)
 
-    return df
+    return gen.gen_json()
