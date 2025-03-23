@@ -4,7 +4,7 @@ from fastapi import APIRouter, UploadFile, status
 
 from app.controllers import file_controller
 
-router = APIRouter(prefix="/files")
+router = APIRouter(prefix="/files", tags=["Files"])
 
 
 @router.post(
