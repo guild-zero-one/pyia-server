@@ -1,25 +1,24 @@
 """File Controller"""
 
-import os
-from fastapi import status, HTTPException, UploadFile
+from fastapi import HTTPException, UploadFile, status
 
+from app.manager.path_manager import PathManager
 from app.utils import pdf_extraction
+
+path_manager = PathManager()
 
 
 async def create_file(type: str, file: UploadFile):
     try:
-        path = os.path.join(os.getcwd(), "app", "pdf")
-
-        if not os.path.exists(path):
-            os.makedirs(path)
-
-        pdf_path = os.path.join(path, file.filename)
+        pdf_path = path_manager.create_path(path_manager.path_pdf, file)
 
         with open(pdf_path, "wb") as p:
             pdf = await file.read()
             p.write(pdf)
 
-        if not os.path.exists(pdf_path):
+        exists_path = path_manager.exists_path(pdf_path)
+
+        if not exists_path:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Falha ao salvar o arquivo",
@@ -34,5 +33,5 @@ async def create_file(type: str, file: UploadFile):
             detail=f"{str(e)}",
         )
     finally:
-        if pdf_path and os.path.exists(pdf_path):
-            os.remove(pdf_path)
+        path_manager.remove_path(pdf_path)
+        path_manager.remove_path(path_manager.path_product)

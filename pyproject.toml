@@ -4,6 +4,7 @@ version = "0.1.0"
 description = ""
 authors = ["None"]
 readme = "README.md"
+package-mode = false
 
 [tool.poetry.dependencies]
 python = ">=3.11,<4.0"
@@ -12,6 +13,7 @@ openpyxl = "^3.1.5"
 fastapi = {extras = ["standard"], version = "^0.115.11"}
 uvicorn = "^0.34.0"
 pymupdf = "^1.25.4"
+google-genai = "^1.7.0"
 
 
 [tool.poetry.group.dev.dependencies]
@@ -27,8 +29,8 @@ preview = true
 select = ['I', 'F', 'E', 'W', 'PL', 'PT']
 
 [tool.taskipy.tasks]
-lint = 'ruff check'
-format = 'ruff format'
+lint = 'ruff check . --fix'
+format = 'ruff format .'
 
 run = 'fastapi dev main.py'
 
