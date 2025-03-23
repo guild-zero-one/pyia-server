@@ -8,7 +8,10 @@ Esta API recebe arquivos PDF contendo dados estruturados e os converte em DataFr
 
 ```
 app/
+├── config/         # Arquivos de configuração de ambiente
 ├── controller/     # Contém a lógica para manipulação de arquivos PDF
+├── gemini/         # Integração com o Gemini
+├── manager/        # Contém arquivos de gerenciamento
 ├── modules/        # Módulos específicos para cada formato de PDF
 ├── pdf/            # Pasta onde os PDFs enviados pelo frontend são armazenados
 ├── routers/        # Gerencia as rotas da API
@@ -34,12 +37,13 @@ main.py             # Arquivo principal da API
 - **FastAPI** - Framework para construção da API
 - **PyMuPDF (fitz)** - Extração de texto de PDFs
 - **Pandas** - Manipulação e conversão de dados
+- **Google-Genai** - Integração com Gemini
 
 ## ⚙️ Pré-requisitos
 
 Antes de rodar o projeto, é necessário instalar e configurar o **Pyenv** e o **Poetry**.
 
-### Instalando o Pyenv
+### Instalando o Pyenv no WSL
 
 Se ainda não tem o Pyenv instalado, siga os passos abaixo:
 
