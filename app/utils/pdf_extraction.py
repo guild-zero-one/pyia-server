@@ -1,9 +1,9 @@
 """PDF Extraction"""
 
 import os
-import fitz
 
-from fastapi import HTTPException, status, UploadFile
+import fitz
+from fastapi import HTTPException, status
 
 from app import modules
 
