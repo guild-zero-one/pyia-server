@@ -1,25 +1,48 @@
-Convert the provided DataFrame into a JSON array format.
+Convert the provided DataFrame into a JSON array of products using the following mapping:
 
-Extract only the following fields from the DataFrame:
+"DESCRIÇÃO DOS PRODUTOS/SERVIÇOS" → sku
 
-"DESCRIÇÃO DOS PRODUTOS/SERVIÇOS" → Map to "sku"
-"QUANT." → Map to "qtd"
-"VALOR UNITÁRIO" → Map to "valor_unit"
+"QUANT." → quantidade
 
-Additionally, create a new field "desc_sku" that provides the real name of the product based on the SKU. The products belong to the Boticário brand, so use this information to identify or infer the correct product name.
+"VALOR UNITÁRIO" → precoUnitario
 
-The final JSON output must be a pure JSON array, without any additional text, explanations, or formatting. Do not include Markdown syntax (e.g., ```json) or any other surrounding characters.
+**The "sku" field should be a simplified version of the product name:
 
-The expected JSON format is:
+Convert to lowercase
+
+Replace all spaces with hyphens ("-")
+
+Remove special characters**
+
+Additionally:
+
+Use the SKU to infer or identify the real product name for the Boticário brand and set this value in the nome field.
+
+The field descricao should also receive the inferred product name.
+
+The field tag should be set to "boticario" for all products.
+
+The field valorVenda should be equal to precoUnitario.
+
+The field catalogo should be set to true for all products.
+
+The field fornecedorId must always be set to 1.
+
+Output only the pure JSON array of products, no Markdown or any explanation. The expected structure for each product is:
 
 [
   {
-    "sku": "<original SKU from DataFrame>",
-    "desc_sku": "<identified or inferred product name>",
-    "qtd": "<quantity>",
-    "valor_unit": "<unit price>"
-  }
+    "nome": "<identified or inferred product name>",
+    "sku": "<simplified sku>",
+    "descricao": "<identified or inferred product name>",
+    "tag": "boticario",
+    "quantidade": <quantity>,
+    "precoUnitario": <unit price>,
+    "valorVenda": <unit price>,
+    "catalogo": true,
+    "fornecedorId": 1
+  },
+  ...
 ]
 
-Return only the JSON array, without any preambles, explanations, or formatting markers.
-
+Return only the JSON array. Do not include Markdown formatting, explanations, or any other text.
