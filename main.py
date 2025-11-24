@@ -2,11 +2,12 @@ from fastapi import FastAPI
 
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import files
+from app.routers import crm, files
 
-app = FastAPI(title="PyPDF Server")
+app = FastAPI(title="PyAssistant Server")
 
 app.include_router(files.router)
+app.include_router(crm.router)
 
 app.add_middleware(
     CORSMiddleware,
