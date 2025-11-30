@@ -2,8 +2,8 @@
 
 import json
 import os
-from datetime import datetime
-from typing import Dict
+from datetime import datetime, timedelta
+from typing import Dict, Tuple
 
 from fastapi import HTTPException, status
 from google import genai
@@ -33,8 +33,34 @@ def _read_prompt(filename: str) -> str:
         return f.read()
 
 
-def _get_relatorio_financeiro_data(db: Session) -> Dict:
+def _get_periodo_dates(periodo: str) -> Tuple[datetime, datetime]:
+    """Calcula data_inicio e data_fim baseado no período selecionado"""
+    agora = datetime.utcnow()
+    
+    if periodo == "mes_atual":
+        inicio = agora.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        fim = agora
+    elif periodo == "3_meses":
+        inicio = agora - timedelta(days=90)
+        fim = agora
+    elif periodo == "6_meses":
+        inicio = agora - timedelta(days=180)
+        fim = agora
+    elif periodo == "ano":
+        inicio = agora - timedelta(days=365)
+        fim = agora
+    else:
+        # Default: mês atual
+        inicio = agora.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        fim = agora
+    
+    return inicio, fim
+
+
+def _get_relatorio_financeiro_data(db: Session, periodo: str = "mes_atual") -> Dict:
     """Coleta dados agregados para relatório financeiro"""
+    data_inicio, data_fim = _get_periodo_dates(periodo)
+    
     # Total de receita e pedidos
     pedidos_info = (
         db.query(
@@ -45,6 +71,7 @@ def _get_relatorio_financeiro_data(db: Session) -> Dict:
             ).label("total_receita")
         )
         .join(PedidoItem, Pedido.id == PedidoItem.pedido_id)
+        .filter(Pedido.criado_em >= data_inicio, Pedido.criado_em <= data_fim)
         .first()
     )
 
@@ -59,6 +86,8 @@ def _get_relatorio_financeiro_data(db: Session) -> Dict:
             ).label("receita")
         )
         .join(PedidoItem, Produto.id == PedidoItem.produto_id)
+        .join(Pedido, PedidoItem.pedido_id == Pedido.id)
+        .filter(Pedido.criado_em >= data_inicio, Pedido.criado_em <= data_fim)
         .group_by(Produto.id, Produto.nome)
         .order_by(func.sum(PedidoItem.quantidade).desc())
         .limit(10)
@@ -76,6 +105,7 @@ def _get_relatorio_financeiro_data(db: Session) -> Dict:
             ).label("valor_total")
         )
         .join(PedidoItem, Pedido.id == PedidoItem.pedido_id)
+        .filter(Pedido.criado_em >= data_inicio, Pedido.criado_em <= data_fim)
         .group_by(Pedido.status)
         .all()
     )
@@ -92,6 +122,8 @@ def _get_relatorio_financeiro_data(db: Session) -> Dict:
         )
         .join(Produto, Marca.id == Produto.marca_id)
         .join(PedidoItem, Produto.id == PedidoItem.produto_id)
+        .join(Pedido, PedidoItem.pedido_id == Pedido.id)
+        .filter(Pedido.criado_em >= data_inicio, Pedido.criado_em <= data_fim)
         .group_by(Marca.id, Marca.nome)
         .order_by(func.sum(
             func.coalesce(PedidoItem.preco_unitario, 0) *
@@ -101,22 +133,17 @@ def _get_relatorio_financeiro_data(db: Session) -> Dict:
         .all()
     )
 
-    # Período
-    periodo = (
-        db.query(
-            func.min(Pedido.criado_em).label("data_inicio"),
-            func.max(Pedido.criado_em).label("data_fim")
-        ).first()
-    )
+    # Período (usar as datas calculadas)
+    periodo_data = {
+        "data_inicio": data_inicio.isoformat() if data_inicio else None,
+        "data_fim": data_fim.isoformat() if data_fim else None,
+    }
 
     return {
         "resumo": {
             "total_receita": float(pedidos_info.total_receita or 0),
             "total_pedidos": pedidos_info.total_pedidos or 0,
-            "periodo": {
-                "inicio": periodo.data_inicio.isoformat() if periodo and periodo.data_inicio else None,
-                "fim": periodo.data_fim.isoformat() if periodo and periodo.data_fim else None,
-            }
+            "periodo": periodo_data
         },
         "produtos_mais_vendidos": [
             {
@@ -145,11 +172,11 @@ def _get_relatorio_financeiro_data(db: Session) -> Dict:
     }
 
 
-def get_relatorio_financeiro(db: Session):
+def get_relatorio_financeiro(db: Session, periodo: str = "mes_atual"):
     """Gera relatório financeiro resumido usando Gemini"""
     try:
         # Coleta dados do banco
-        dados = _get_relatorio_financeiro_data(db)
+        dados = _get_relatorio_financeiro_data(db, periodo)
         dados_json = json.dumps(dados, ensure_ascii=False, indent=2)
 
         # Lê o prompt
@@ -177,11 +204,14 @@ def get_relatorio_financeiro(db: Session):
         )
 
 
-def _get_alertas_reabastecimento_data(db: Session) -> Dict:
+def _get_alertas_reabastecimento_data(db: Session, periodo: str = "mes_atual") -> Dict:
     """Coleta dados de produtos para alertas de reabastecimento"""
-    # Quantidade vendida por produto (últimos 30 dias)
-    from datetime import timedelta
-    data_limite = datetime.utcnow() - timedelta(days=30)
+    data_inicio, data_fim = _get_periodo_dates(periodo)
+    
+    # Calcular dias do período para cálculo de dias restantes
+    dias_periodo = (data_fim - data_inicio).days
+    if dias_periodo == 0:
+        dias_periodo = 1
 
     vendas_produtos = (
         db.query(
@@ -189,7 +219,7 @@ def _get_alertas_reabastecimento_data(db: Session) -> Dict:
             func.sum(PedidoItem.quantidade).label("quantidade_vendida")
         )
         .join(Pedido, PedidoItem.pedido_id == Pedido.id)
-        .filter(Pedido.criado_em >= data_limite)
+        .filter(Pedido.criado_em >= data_inicio, Pedido.criado_em <= data_fim)
         .group_by(PedidoItem.produto_id)
         .having(func.sum(PedidoItem.quantidade) > 0)  # Apenas produtos com vendas
         .all()
@@ -222,23 +252,25 @@ def _get_alertas_reabastecimento_data(db: Session) -> Dict:
     # Filtrar produtos com alta velocidade de venda
     produtos_prioritarios = []
     for p in produtos:
-        vendas_30d = int(vendas_dict.get(p.id, 0))
+        vendas_periodo = int(vendas_dict.get(p.id, 0))
         estoque_atual = p.quantidade or 0
         
         # Calcular dias de estoque restante (aproximado)
-        if vendas_30d > 0:
-            dias_restantes = (estoque_atual / vendas_30d) * 30
+        if vendas_periodo > 0:
+            dias_restantes = (estoque_atual / vendas_periodo) * dias_periodo
         else:
             dias_restantes = 999
         
-        # Priorizar: produtos com vendas significativas (>= 3 unidades em 30 dias) e estoque baixo
-        if vendas_30d >= 3 and estoque_atual <= 30:
+        # Priorizar: produtos com vendas significativas e estoque baixo
+        # Ajustar threshold baseado no período (3 unidades para períodos menores, proporcional para maiores)
+        threshold = max(3, int(dias_periodo / 10))
+        if vendas_periodo >= threshold and estoque_atual <= 30:
             produtos_prioritarios.append({
                 "id": str(p.id),
                 "nome": p.nome_produto,
                 "sku": p.sku,
                 "quantidade_atual": estoque_atual,
-                "quantidade_vendida_30dias": vendas_30d,
+                "quantidade_vendida_periodo": vendas_periodo,
                 "dias_estoque_restante": round(dias_restantes, 1)
             })
 
@@ -247,11 +279,11 @@ def _get_alertas_reabastecimento_data(db: Session) -> Dict:
     }
 
 
-def get_alertas_reabastecimento(db: Session):
+def get_alertas_reabastecimento(db: Session, periodo: str = "mes_atual"):
     """Gera alertas de reabastecimento usando Gemini"""
     try:
         # Coleta dados do banco
-        dados = _get_alertas_reabastecimento_data(db)
+        dados = _get_alertas_reabastecimento_data(db, periodo)
         dados_json = json.dumps(dados, ensure_ascii=False, indent=2)
 
         # Lê o prompt
@@ -279,15 +311,15 @@ def get_alertas_reabastecimento(db: Session):
         )
 
 
-def _get_previsao_demanda_data(db: Session) -> Dict:
+def _get_previsao_demanda_data(db: Session, periodo: str = "mes_atual") -> Dict:
     """Coleta dados históricos para previsão de demanda"""
-    # Período de análise
-    periodo = (
-        db.query(
-            func.min(Pedido.criado_em).label("data_inicio"),
-            func.max(Pedido.criado_em).label("data_fim")
-        ).first()
-    )
+    data_inicio, data_fim = _get_periodo_dates(periodo)
+    
+    # Período de análise (usar as datas calculadas)
+    periodo_data = {
+        "inicio": data_inicio.isoformat() if data_inicio else None,
+        "fim": data_fim.isoformat() if data_fim else None,
+    }
 
     # Vendas por produto ao longo do tempo
     vendas_produtos = (
@@ -300,6 +332,7 @@ def _get_previsao_demanda_data(db: Session) -> Dict:
         )
         .join(PedidoItem, Produto.id == PedidoItem.produto_id)
         .join(Pedido, PedidoItem.pedido_id == Pedido.id)
+        .filter(Pedido.criado_em >= data_inicio, Pedido.criado_em <= data_fim)
         .group_by(Produto.id, Produto.nome, Produto.quantidade)
         .all()
     )
@@ -315,16 +348,14 @@ def _get_previsao_demanda_data(db: Session) -> Dict:
             ).label("receita")
         )
         .join(PedidoItem, Pedido.id == PedidoItem.pedido_id)
+        .filter(Pedido.criado_em >= data_inicio, Pedido.criado_em <= data_fim)
         .group_by(func.date_trunc('month', Pedido.criado_em))
         .order_by(func.date_trunc('month', Pedido.criado_em))
         .all()
     )
 
     return {
-        "periodo": {
-            "inicio": periodo.data_inicio.isoformat() if periodo and periodo.data_inicio else None,
-            "fim": periodo.data_fim.isoformat() if periodo and periodo.data_fim else None,
-        },
+        "periodo": periodo_data,
         "vendas_produtos": [
             {
                 "id": str(v.id),
@@ -346,11 +377,11 @@ def _get_previsao_demanda_data(db: Session) -> Dict:
     }
 
 
-def get_previsao_demanda(db: Session):
+def get_previsao_demanda(db: Session, periodo: str = "mes_atual"):
     """Gera previsão de demanda usando Gemini"""
     try:
         # Coleta dados do banco
-        dados = _get_previsao_demanda_data(db)
+        dados = _get_previsao_demanda_data(db, periodo)
         dados_json = json.dumps(dados, ensure_ascii=False, indent=2)
 
         # Lê o prompt
@@ -378,8 +409,10 @@ def get_previsao_demanda(db: Session):
         )
 
 
-def _get_proxima_acao_data(db: Session) -> Dict:
+def _get_proxima_acao_data(db: Session, periodo: str = "mes_atual") -> Dict:
     """Coleta dados completos para sugestão de próxima ação"""
+    data_inicio, data_fim = _get_periodo_dates(periodo)
+    
     # Resumo financeiro
     pedidos_info = (
         db.query(
@@ -390,13 +423,18 @@ def _get_proxima_acao_data(db: Session) -> Dict:
             ).label("total_receita")
         )
         .join(PedidoItem, Pedido.id == PedidoItem.pedido_id)
+        .filter(Pedido.criado_em >= data_inicio, Pedido.criado_em <= data_fim)
         .first()
     )
 
-    # Pedidos pendentes
+    # Pedidos pendentes (no período)
     pedidos_pendentes = (
         db.query(func.count(Pedido.id))
-        .filter(Pedido.status.in_(["Pendente", "pendente", "PENDENTE"]))
+        .filter(
+            Pedido.status.in_(["Pendente", "pendente", "PENDENTE"]),
+            Pedido.criado_em >= data_inicio,
+            Pedido.criado_em <= data_fim
+        )
         .scalar() or 0
     )
 
@@ -420,9 +458,7 @@ def _get_proxima_acao_data(db: Session) -> Dict:
         .all()
     )
 
-    # Produtos mais vendidos recentemente
-    from datetime import timedelta
-    data_limite = datetime.utcnow() - timedelta(days=7)
+    # Produtos mais vendidos no período
     produtos_recentes = (
         db.query(
             Produto.id,
@@ -431,7 +467,7 @@ def _get_proxima_acao_data(db: Session) -> Dict:
         )
         .join(PedidoItem, Produto.id == PedidoItem.produto_id)
         .join(Pedido, PedidoItem.pedido_id == Pedido.id)
-        .filter(Pedido.criado_em >= data_limite)
+        .filter(Pedido.criado_em >= data_inicio, Pedido.criado_em <= data_fim)
         .group_by(Produto.id, Produto.nome)
         .order_by(func.sum(PedidoItem.quantidade).desc())
         .limit(5)
@@ -460,18 +496,18 @@ def _get_proxima_acao_data(db: Session) -> Dict:
             {
                 "id": str(p.id),
                 "nome": p.nome,
-                "quantidade_vendida_7dias": int(p.quantidade_vendida or 0)
+                "quantidade_vendida_periodo": int(p.quantidade_vendida or 0)
             }
             for p in produtos_recentes
         ]
     }
 
 
-def get_proxima_acao(db: Session):
+def get_proxima_acao(db: Session, periodo: str = "mes_atual"):
     """Gera sugestão de próxima melhor ação usando Gemini"""
     try:
         # Coleta dados do banco
-        dados = _get_proxima_acao_data(db)
+        dados = _get_proxima_acao_data(db, periodo)
         dados_json = json.dumps(dados, ensure_ascii=False, indent=2)
 
         # Lê o prompt
