@@ -12,7 +12,7 @@ class PathManager:
             os.getcwd(), "app", "upload", "products.txt"
         )
         self.path_prompt = os.path.join(
-            os.getcwd(), "app", "gemini", "prompt.txt"
+            os.getcwd(), "app", "gemini", "criacao_produtos.txt"
         )
 
     def read_path(self, path: str) -> str:

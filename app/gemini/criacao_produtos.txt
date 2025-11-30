@@ -26,7 +26,9 @@ The field valorVenda should be equal to precoUnitario.
 
 The field catalogo should be set to true for all products.
 
-The field fornecedorId must always be set to 1.
+The field idMarca must always be set to 1.
+
+The field imagemUrl is optional and can be left as null if not available.
 
 Output only the pure JSON array of products, no Markdown or any explanation. The expected structure for each product is:
 
@@ -40,9 +42,11 @@ Output only the pure JSON array of products, no Markdown or any explanation. The
     "precoUnitario": <unit price>,
     "valorVenda": <unit price>,
     "catalogo": true,
-    "fornecedorId": 1
+    "imagemUrl": null,
+    "idMarca": 1
   },
   ...
 ]
 
 Return only the JSON array. Do not include Markdown formatting, explanations, or any other text.
+
